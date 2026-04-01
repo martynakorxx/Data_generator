@@ -24,7 +24,7 @@ if st.session_state.get('run_sim'):
 
     start_time = time.time()
     with st.spinner("Generowanie danych..."):
-        symulacje = Parallel(n_jobs=-1, prefer="threads", batch_size='auto')(
+        symulacje = Parallel(n_jobs=-1, prefer="threads", batch_size="auto")(
         delayed(generate_test)(i, rodzaj_testu) for i in range(ile_iteracji))
 
            
