@@ -5,7 +5,17 @@ import numpy as np
 import random
 import warnings
 from joblib import Parallel, delayed
+import os
+
 warnings.filterwarnings("ignore")
+
+
+def warmup():
+    """ Funkcja rozgrzewająca, która wykonuje proste obliczenia, aby "rozgrzać" procesor i zoptymalizować wydajność podczas rzeczywistej symulacji. """
+    Parallel(n_jobs=-1, batch_size="auto")(
+    delayed(generate_test)(i, 1, 10, "easy", 100, 4, 0.25, 0.5) for i in range(10))
+    return 
+
 
 def cor_secure(a, b):
     if len(a) < 2 or np.std(a) == 0 or np.std(b) == 0:
