@@ -13,7 +13,7 @@ warnings.filterwarnings("ignore")
 def warmup():
     """ Funkcja rozgrzewająca, która wykonuje proste obliczenia, aby "rozgrzać" procesor i zoptymalizować wydajność podczas rzeczywistej symulacji. """
     Parallel(n_jobs=-1, batch_size="auto")(
-    delayed(generate_test)(i, 1, 10, "easy", 100, 4, 0.25, 0.5) for i in range(10))
+    delayed(generate_test)(i, 1, 100, "easy", 100, 4, 0.25, 0.5) for i in range(10))
     return 
 
 
