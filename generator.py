@@ -25,10 +25,10 @@ def create_sections(num_sections):
     section_ids = np.arange(0, num_sections)
     difficulty_label = np.random.choice(labels, size=num_sections)
     conlist = [difficulty_label == "easy", difficulty_label == "medium", difficulty_label == "medium-hard", difficulty_label == "hard"]
-    checklist = [truncnorm.rvs((0.15 - 0.25)/0.05, (0.35 - 0.25)/0.05, loc=0.25, scale=0.05, size=num_sections),
-                 truncnorm.rvs((0.35 - 0.45)/0.05, (0.55 - 0.45)/0.05, loc=0.45, scale=0.05, size=num_sections),
-                 truncnorm.rvs((0.55 - 0.65)/0.05, (0.75 - 0.65)/0.05, loc=0.65, scale=0.05, size=num_sections),
-                 truncnorm.rvs((0.75 - 0.85)/0.05, (0.90 - 0.85)/0.05, loc=0.85, scale=0.05, size=num_sections)]
+    checklist = [truncnorm.rvs((0.15 - 0.25)/0.05, (0.35 - 0.25)/0.05, loc=0.25, scale=0.05, size=num_sections).astype(np.float32),
+                 truncnorm.rvs((0.35 - 0.45)/0.05, (0.55 - 0.45)/0.05, loc=0.45, scale=0.05, size=num_sections).astype(np.float32),
+                 truncnorm.rvs((0.55 - 0.65)/0.05, (0.75 - 0.65)/0.05, loc=0.65, scale=0.05, size=num_sections).astype(np.float32),
+                 truncnorm.rvs((0.75 - 0.85)/0.05, (0.90 - 0.85)/0.05, loc=0.85, scale=0.05, size=num_sections).astype(np.float32)]
     difficulty_values = np.select(conlist, checklist)
 
     return (difficulty_label, difficulty_values, section_ids)
@@ -38,13 +38,13 @@ def create_students(group_size, group_knowledge_level, sections):
 
     diversity = 0.15
     a_clip, b_clip = (0 - group_knowledge_level) / diversity, (1 - group_knowledge_level) / diversity
-    knowledge_levels = truncnorm.rvs(a_clip, b_clip, loc=group_knowledge_level, scale=diversity, size=group_size)
-    stress = truncnorm.rvs(0, 1, size=group_size)
+    knowledge_levels = truncnorm.rvs(a_clip, b_clip, loc=group_knowledge_level, scale=diversity, size=group_size).astype(np.float32)
+    stress = truncnorm.rvs(0, 1, size=group_size).astype(np.float32)
     conlist =[stress < 0.3, (stress >= 0.3) & (stress < 0.65), stress >= 0.65]
     choicelist = [knowledge_levels, knowledge_levels + 0.1, knowledge_levels - 0.1]
     theta_values = np.select(conlist, choicelist)
     t = theta_values[:, np.newaxis]
-    knowledge_by_section = truncnorm.rvs((0 - t)/0.15, (1 - t)/0.15, loc=t, scale=0.15, size=(group_size, len(sections[0])))
+    knowledge_by_section = truncnorm.rvs((0 - t)/0.15, (1 - t)/0.15, loc=t, scale=0.15, size=(group_size, len(sections[0]))).astype(np.float32)
     student_ids = np.arange(1, group_size + 1).reshape(-1, 1)
     knowledge_by_section = np.hstack((student_ids, knowledge_by_section))
     return theta_values, knowledge_by_section
@@ -59,7 +59,7 @@ def create_questions(sections):
     sections_matrix = np.repeat(sections_ids, 3)
     section_labels_matrix = np.repeat(sections_labels, 3)
     difficulty_labels = np.tile(np.array(['easy', 'medium', 'hard']), len(sections[2]))
-    difficulty = np.tile(np.array([-0.10, 0.0, 0.10]), len(sections[2]))
+    difficulty = np.tile(np.array([-0.10, 0.0, 0.10]), len(sections[2])).astype(np.float32)
     question_theta = values_matrix + difficulty
     mask = (question_theta >= 0.0) & (question_theta <= 1.0)
     question_theta = question_theta[mask]
@@ -96,7 +96,7 @@ def simulate_test_0(test_structure, knowledge_by_section, theta_values, guessing
     q_theta_values = test_structure[2]
     len_questions = len(q_theta_values)
     knowladge_for_questions = knowledge_by_section[:, id_of_sections + 1]
-    current_fatigue = np.arange(len_questions) * 0.002
+    current_fatigue = (np.arange(len_questions) * 0.002).astype(np.float32)
     effective_knowledge = knowladge_for_questions - current_fatigue
     resolve_ability = effective_knowledge - q_theta_values
     conlist_guess = resolve_ability < 0
@@ -119,11 +119,11 @@ def simulate_test_1(test_structure, knowledge_by_section, theta_values,  guessin
     q_theta_values = test_structure[2]
     len_questions = len(q_theta_values)
     knowladge_for_questions = knowledge_by_section[:, id_of_sections + 1]
-    current_fatigue = np.arange(len_questions) * 0.002
+    current_fatigue = (np.arange(len_questions) * 0.002).astype(np.float32)  
     effective_knowledge = knowladge_for_questions - current_fatigue
     resolve_ability = effective_knowledge - q_theta_values
     conlist_guess = resolve_ability < 0
-    risk_taking_prob = calculate_risk_probability(resolve_ability)
+    risk_taking_prob = calculate_risk_probability(resolve_ability).astype(np.float32)
     random_values = np.random.rand(len_students, len_questions) 
     did_guess = np.where((conlist_guess) & (random_values < risk_taking_prob), 1, 0)
     scores = np.where(did_guess == 1, np.random.binomial(1, guessing_prob, size=(len_students, len_questions)) * 2 - 1, 
@@ -206,14 +206,14 @@ def simulate (num_tests, test_type):
     num_sections_count = np.random.randint(1, 50, size=num_tests)
     labels = ["weak", "average", "advanced"]
     group_knowledge_label = np.random.choice(labels, size=num_tests)
-    group_knowlage_checklist = [truncnorm.rvs((0.3 - 0.4)/0.02, (0.5 - 0.4)/0.05, loc=0.4, scale=0.05, size=num_tests),
-                                truncnorm.rvs((0.5 - 0.6)/0.05, (0.7 - 0.6)/0.05, loc=0.6, scale=0.05, size=num_tests),
-                                truncnorm.rvs((0.7 - 0.8)/0.05, (0.90 - 0.8)/0.05, loc=0.8, scale=0.05, size=num_tests)]
+    group_knowlage_checklist = [truncnorm.rvs((0.3 - 0.4)/0.02, (0.5 - 0.4)/0.05, loc=0.4, scale=0.05, size=num_tests).astype(np.float32),
+                                truncnorm.rvs((0.5 - 0.6)/0.05, (0.7 - 0.6)/0.05, loc=0.6, scale=0.05, size=num_tests).astype(np.float32),
+                                truncnorm.rvs((0.7 - 0.8)/0.05, (0.90 - 0.8)/0.05, loc=0.8, scale=0.05, size=num_tests).astype(np.float32)]
     group_knowledge_level = np.select([group_knowledge_label == "weak", group_knowledge_label == "average", group_knowledge_label == "advanced"], group_knowlage_checklist)
 
     group_size = np.random.randint(1, 200, size=num_tests)
     num_options = np.random.randint(2, 5, size=num_tests)
-    guessing_prob = 1 / num_options
+    guessing_prob = (1 / num_options).astype(np.float32) 
     
     simulations = Parallel(n_jobs=-1, prefer="threads", batch_size="auto")(
     delayed(generate_test)(i, test_type, num_sections_count[i], group_knowledge_label[i], group_size[i], num_options[i], guessing_prob[i], group_knowledge_level[i]) for i in range(num_tests))
