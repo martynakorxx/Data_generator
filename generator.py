@@ -46,8 +46,10 @@ def create_students(group_size, group_knowledge_level, sections):
     t = theta_values[:, np.newaxis]
     knowledge_by_section = truncnorm.rvs((0 - t)/0.15, (1 - t)/0.15, loc=t, scale=0.15, size=(group_size, len(sections[0]))).astype(np.float32)
     student_ids = np.arange(1, group_size + 1).reshape(-1, 1)
-    knowledge_by_section = np.hstack((student_ids, knowledge_by_section))
-    return theta_values, knowledge_by_section
+    knowledge_by_section_id = np.empty((group_size, len(sections[0]) + 1), dtype=np.float32)
+    knowledge_by_section_id[:, 0] = student_ids.flatten()
+    knowledge_by_section_id[:, 1:] = knowledge_by_section
+    return theta_values, knowledge_by_section_id
 
 def create_questions(sections):
     """Dzieli pytania na trzy poziomy trudności (łatwe, średnie, trudne) i przypisuje im trudność theta."""
@@ -215,7 +217,7 @@ def simulate (num_tests, test_type):
     num_options = np.random.randint(2, 5, size=num_tests)
     guessing_prob = (1 / num_options).astype(np.float32) 
     
-    simulations = Parallel(n_jobs=-1, prefer="threads", batch_size="auto")(
+    simulations = Parallel(n_jobs=-1, batch_size="auto")(
     delayed(generate_test)(i, test_type, num_sections_count[i], group_knowledge_label[i], group_size[i], num_options[i], guessing_prob[i], group_knowledge_level[i]) for i in range(num_tests))
 
     column_names = [
