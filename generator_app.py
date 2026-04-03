@@ -1,6 +1,4 @@
 import streamlit as st
-import time
-import pandas as pd
 from generator import simulate
 
 

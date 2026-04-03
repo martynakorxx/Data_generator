@@ -1,7 +1,8 @@
-streamlit
-pandas
 numpy
+pandas
 scipy
+joblib
 numba
+streamlit
 
 
