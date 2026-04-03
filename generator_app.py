@@ -1,8 +1,8 @@
 import streamlit as st
 import time
 import pandas as pd
-from generator import generate_test 
-from joblib import Parallel, delayed
+from generator import simulate
+
 
 st.set_page_config(page_title="Generator danych syntetycznych", layout="centered") #ustawia tytuł i układ strony
 
@@ -21,16 +21,7 @@ with col2:
         st.rerun()
 if st.session_state.get('run_sim'):
     st.session_state.run_sim = False 
-
-    start_time = time.time()
-    with st.spinner("Generowanie danych..."):
-        symulacje = Parallel(n_jobs=-1, prefer="threads", batch_size="auto")(
-        delayed(generate_test)(i, rodzaj_testu) for i in range(ile_iteracji))
-
-           
-    df_final = pd.DataFrame(symulacje)
-    end_time = time.time()
-    duration = end_time - start_time
+    df_final, duration = simulate(ile_iteracji, rodzaj_testu)
     st.markdown(f"Generowanie zakończone! :tada:")
     st.markdown(f"**Czas trwania: {duration:.2f} sekund**")
     st.balloons()
