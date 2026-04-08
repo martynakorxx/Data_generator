@@ -18,7 +18,7 @@ def warmup():
 def  truncate_normal(mean, std, s, lower=0, upper=1):
     """Generuje liczby z rozkładu normalnego, ale ograniczone do zakresu [lower, upper]."""
     random_values = np.random.uniform(0, 1, size=s)
-    return scipy.special.ndtri(random_values * (scipy.special.ndtr((upper - mean) / std) - scipy.special.ndtr((lower - mean) / std)) + scipy.special.ndtr((lower - mean) / std)) * std + mean
+    return (scipy.special.ndtri(random_values * (scipy.special.ndtr((upper - mean) / std) - scipy.special.ndtr((lower - mean) / std)) + scipy.special.ndtr((lower - mean) / std)) * std + mean).astype(np.float32)
 
 
 def cor_secure(a, b):
@@ -116,7 +116,7 @@ def simulate_test_0(test_structure, knowledge_by_section, theta_values, guessing
     effective_knowledge = knowladge_for_questions - current_fatigue
     resolve_ability = effective_knowledge - q_theta_values
     conlist_guess = resolve_ability < 0
-    scores = np.where(conlist_guess, np.random.binomial(1, guessing_prob, size=(len_students, len_questions)), 1)
+    scores = np.where(conlist_guess, np.random.binomial(1, guessing_prob, size=(len_students, len_questions)), 1) #można przyspieszyć maskami
     did_guess = np.where(conlist_guess, 1, 0)
     was_hit = np.where((conlist_guess) & (scores == 1), 1, np.where(conlist_guess, 0, -1))
     students_ids = np.repeat(knowledge_by_section[:, 0], len_questions)
@@ -141,7 +141,7 @@ def simulate_test_1(test_structure, knowledge_by_section, theta_values,  guessin
     conlist_guess = resolve_ability < 0
     risk_taking_prob = calculate_risk_probability(resolve_ability).astype(np.float32)
     random_values = np.random.rand(len_students, len_questions) 
-    did_guess = np.where((conlist_guess) & (random_values < risk_taking_prob), 1, 0)
+    did_guess = np.where((conlist_guess) & (random_values < risk_taking_prob), 1, 0) #można przyspieszyć maskami
     scores = np.where(did_guess == 1, np.random.binomial(1, guessing_prob, size=(len_students, len_questions)) * 2 - 1, 
                 np.where(resolve_ability >= 0, 1, 0))
     was_hit = np.where((did_guess == 1) & (scores == 1), 1, np.where(did_guess == 1, 0, -1))
@@ -163,8 +163,8 @@ def calculate_summary(results, num_questions):
     hit_count = (was_hit == 1).sum(axis=1)
     final_score_pct = total_points / num_questions
     guess_percentage = guess_count / num_questions
-    hit_rate = np.where(guess_count > 0, hit_count / guess_count, 0)
-    grade = np.where(final_score_pct < 0.5, 2,
+    hit_rate = np.where(guess_count > 0, hit_count / guess_count, 0) 
+    grade = np.where(final_score_pct < 0.5, 2, 
                 np.where(final_score_pct < 0.6, 3,
                 np.where(final_score_pct < 0.7, 3.5,
                 np.where(final_score_pct < 0.8, 4,
@@ -222,9 +222,9 @@ def simulate (num_tests, test_type):
     num_sections_count = np.random.randint(1, 50, size=num_tests)
     labels = ["weak", "average", "advanced"]
     group_knowledge_label = np.random.choice(labels, size=num_tests)
-    group_knowlage_checklist = [truncate_normal(0.4, 0.05, num_tests, 0.3, 0.5).astype(np.float32),
-                                truncate_normal(0.6, 0.05, num_tests, 0.5, 0.7).astype(np.float32),
-                                truncate_normal(0.8, 0.05, num_tests, 0.7, 0.9).astype(np.float32)]
+    group_knowlage_checklist = [truncate_normal(0.4, 0.05, num_tests, 0.3, 0.5),
+                                truncate_normal(0.6, 0.05, num_tests, 0.5, 0.7),
+                                truncate_normal(0.8, 0.05, num_tests, 0.7, 0.9)]
     group_knowledge_level = np.select([group_knowledge_label == "weak", group_knowledge_label == "average", group_knowledge_label == "advanced"], group_knowlage_checklist)
 
     group_size = np.random.randint(1, 200, size=num_tests)
