@@ -10,7 +10,7 @@ st.title("Generator danych syntetycznych", text_alignment="center")
 
 with st.container(border=True):
     st.header("Przeprowadź symulacje",text_alignment="center")
-    n_iteration = st.number_input("Ilość rekordów", min_value=1, value=100, step=1000)
+    n_iteration = st.number_input("Ilość rekordów", min_value=1, value=100, step=100)
     test_type = st.selectbox("Rodzaj", [0, 1], format_func=lambda x: "Punktacja standardowa" if x == 0 else "Punktacja ujemna")
 
 

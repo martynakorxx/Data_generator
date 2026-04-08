@@ -1,11 +1,10 @@
 import time
-from scipy.stats import truncnorm
 import pandas as pd
 import numpy as np
 import random
 import warnings
 from joblib import Parallel, delayed
-import os
+import scipy.special
 
 warnings.filterwarnings("ignore")
 
@@ -15,6 +14,11 @@ def warmup():
     Parallel(n_jobs=-1, batch_size="auto")(
     delayed(generate_test)(i, 1, 100, "easy", 100, 4, 0.25, 0.5) for i in range(10))
     return 
+
+def  truncate_normal(mean, std, s, lower=0, upper=1):
+    """Generuje liczby z rozkładu normalnego, ale ograniczone do zakresu [lower, upper]."""
+    random_values = np.random.uniform(0, 1, size=s)
+    return scipy.special.ndtri(random_values * (scipy.special.ndtr((upper - mean) / std) - scipy.special.ndtr((lower - mean) / std)) + scipy.special.ndtr((lower - mean) / std)) * std + mean
 
 
 def cor_secure(a, b):
@@ -31,14 +35,14 @@ def calculate_risk_probability(ability_diff):
  
 def create_sections(num_sections):
     """ Tworzy listę działów z przypisaną etykietą trudności, wartością trudności i częstotliwością. """
-    labels = ["easy", "medium", "medium-hard", "hard"]  # Odpowiadające etykiety: łatwy, średni, średnio-trudny, trudny
+    labels = ["easy", "medium", "medium-hard", "hard"]
     section_ids = np.arange(0, num_sections)
     difficulty_label = np.random.choice(labels, size=num_sections)
     conlist = [difficulty_label == "easy", difficulty_label == "medium", difficulty_label == "medium-hard", difficulty_label == "hard"]
-    checklist = [truncnorm.rvs((0.15 - 0.25)/0.05, (0.35 - 0.25)/0.05, loc=0.25, scale=0.05, size=num_sections).astype(np.float32),
-                 truncnorm.rvs((0.35 - 0.45)/0.05, (0.55 - 0.45)/0.05, loc=0.45, scale=0.05, size=num_sections).astype(np.float32),
-                 truncnorm.rvs((0.55 - 0.65)/0.05, (0.75 - 0.65)/0.05, loc=0.65, scale=0.05, size=num_sections).astype(np.float32),
-                 truncnorm.rvs((0.75 - 0.85)/0.05, (0.90 - 0.85)/0.05, loc=0.85, scale=0.05, size=num_sections).astype(np.float32)]
+    checklist = [truncate_normal(0.25, 0.05, num_sections, 0.35, 0.15),
+                 truncate_normal(0.45, 0.05, num_sections, 0.55, 0.35),
+                 truncate_normal(0.65, 0.05, num_sections, 0.75, 0.55),
+                 truncate_normal(0.85, 0.05, num_sections, 0.90, 0.75)]
     difficulty_values = np.select(conlist, checklist)
 
     return (difficulty_label, difficulty_values, section_ids)
@@ -48,13 +52,13 @@ def create_students(group_size, group_knowledge_level, sections):
 
     diversity = 0.15
     a_clip, b_clip = (0 - group_knowledge_level) / diversity, (1 - group_knowledge_level) / diversity
-    knowledge_levels = truncnorm.rvs(a_clip, b_clip, loc=group_knowledge_level, scale=diversity, size=group_size).astype(np.float32)
-    stress = truncnorm.rvs(0, 1, size=group_size).astype(np.float32)
+    knowledge_levels = truncate_normal(group_knowledge_level, diversity, group_size, 0, 1)
+    stress = truncate_normal(0.5, 0.5, group_size, 0, 1)
     conlist =[stress < 0.3, (stress >= 0.3) & (stress < 0.65), stress >= 0.65]
     choicelist = [knowledge_levels, knowledge_levels + 0.1, knowledge_levels - 0.1]
     theta_values = np.select(conlist, choicelist)
     t = theta_values[:, np.newaxis]
-    knowledge_by_section = truncnorm.rvs((0 - t)/0.15, (1 - t)/0.15, loc=t, scale=0.15, size=(group_size, len(sections[0]))).astype(np.float32)
+    knowledge_by_section = truncate_normal(t, 0.15, (group_size, len(sections[0])), 0, 1, )
     student_ids = np.arange(1, group_size + 1).reshape(-1, 1)
     knowledge_by_section_id = np.empty((group_size, len(sections[0]) + 1), dtype=np.float32)
     knowledge_by_section_id[:, 0] = student_ids.flatten()
@@ -218,9 +222,9 @@ def simulate (num_tests, test_type):
     num_sections_count = np.random.randint(1, 50, size=num_tests)
     labels = ["weak", "average", "advanced"]
     group_knowledge_label = np.random.choice(labels, size=num_tests)
-    group_knowlage_checklist = [truncnorm.rvs((0.3 - 0.4)/0.02, (0.5 - 0.4)/0.05, loc=0.4, scale=0.05, size=num_tests).astype(np.float32),
-                                truncnorm.rvs((0.5 - 0.6)/0.05, (0.7 - 0.6)/0.05, loc=0.6, scale=0.05, size=num_tests).astype(np.float32),
-                                truncnorm.rvs((0.7 - 0.8)/0.05, (0.90 - 0.8)/0.05, loc=0.8, scale=0.05, size=num_tests).astype(np.float32)]
+    group_knowlage_checklist = [truncate_normal(0.4, 0.05, num_tests, 0.3, 0.5).astype(np.float32),
+                                truncate_normal(0.6, 0.05, num_tests, 0.5, 0.7).astype(np.float32),
+                                truncate_normal(0.8, 0.05, num_tests, 0.7, 0.9).astype(np.float32)]
     group_knowledge_level = np.select([group_knowledge_label == "weak", group_knowledge_label == "average", group_knowledge_label == "advanced"], group_knowlage_checklist)
 
     group_size = np.random.randint(1, 200, size=num_tests)
