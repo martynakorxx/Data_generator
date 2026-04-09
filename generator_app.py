@@ -4,7 +4,7 @@ from generator import warmup
 
 
 
-st.set_page_config(page_title="Generator danych syntetycznych", layout="centered") #ustawia tytuł i układ strony
+st.set_page_config(page_title="Generator danych syntetycznych", layout="centered")
 
 st.title("Generator danych syntetycznych", text_alignment="center")
 

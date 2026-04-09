@@ -18,10 +18,14 @@ def warmup():
 def  truncate_normal(mean, std, s, lower=0, upper=1):
     """Generuje liczby z rozkładu normalnego, ale ograniczone do zakresu [lower, upper]."""
     random_values = np.random.uniform(0, 1, size=s)
-    return (scipy.special.ndtri(random_values * (scipy.special.ndtr((upper - mean) / std) - scipy.special.ndtr((lower - mean) / std)) + scipy.special.ndtr((lower - mean) / std)) * std + mean).astype(np.float32)
+    return (
+        scipy.special.ndtri(random_values * (
+        scipy.special.ndtr((upper - mean) / std) - scipy.special.ndtr(
+        (lower - mean) / std)) + scipy.special.ndtr((lower - mean) / std)) * std + mean).astype(np.float32)
 
 
 def cor_secure(a, b):
+    """ Oblicza bezpieczną korelację między dwoma wektorami, zwracając 0.0, jeśli dane są niewystarczające lub mają zerową wariancję. """
     if len(a) < 2 or np.std(a) == 0 or np.std(b) == 0:
         return 0.0
     return float(np.corrcoef(a, b)[0, 1])
@@ -51,17 +55,16 @@ def create_students(group_size, group_knowledge_level, sections):
     """Tworzy uczniów z ich stresem, poziomem wiedzy ogólnej oraz poziomem wiedzy z poszczególnych działów."""
 
     diversity = 0.15
-    a_clip, b_clip = (0 - group_knowledge_level) / diversity, (1 - group_knowledge_level) / diversity
     knowledge_levels = truncate_normal(group_knowledge_level, diversity, group_size, 0, 1)
     stress = truncate_normal(0.5, 0.5, group_size, 0, 1)
     conlist =[stress < 0.3, (stress >= 0.3) & (stress < 0.65), stress >= 0.65]
     choicelist = [knowledge_levels, knowledge_levels + 0.1, knowledge_levels - 0.1]
     theta_values = np.select(conlist, choicelist)
     t = theta_values[:, np.newaxis]
-    knowledge_by_section = truncate_normal(t, 0.15, (group_size, len(sections[0])), 0, 1, )
-    student_ids = np.arange(1, group_size + 1).reshape(-1, 1)
+    knowledge_by_section = truncate_normal(t, 0.15, (group_size, len(sections[0])), 0, 1)
+    student_ids = np.arange(1, group_size + 1)
     knowledge_by_section_id = np.empty((group_size, len(sections[0]) + 1), dtype=np.float32)
-    knowledge_by_section_id[:, 0] = student_ids.flatten()
+    knowledge_by_section_id[:, 0] = student_ids
     knowledge_by_section_id[:, 1:] = knowledge_by_section
     return theta_values, knowledge_by_section_id
 
@@ -116,14 +119,12 @@ def simulate_test_0(test_structure, knowledge_by_section, theta_values, guessing
     effective_knowledge = knowladge_for_questions - current_fatigue
     resolve_ability = effective_knowledge - q_theta_values
     conlist_guess = resolve_ability < 0
-    scores = np.where(conlist_guess, np.random.binomial(1, guessing_prob, size=(len_students, len_questions)), 1) #można przyspieszyć maskami
+    scores = np.where(conlist_guess, np.random.binomial(1, guessing_prob, size=(len_students, len_questions)), 1)
     did_guess = np.where(conlist_guess, 1, 0)
     was_hit = np.where((conlist_guess) & (scores == 1), 1, np.where(conlist_guess, 0, -1))
-    students_ids = np.repeat(knowledge_by_section[:, 0], len_questions)
-    question_ids = np.tile(test_structure[0], len_students)
-    student_thetas = np.repeat(theta_values, len_questions)
+
     
-    return ( students_ids, question_ids, student_thetas, scores.flatten(), did_guess.flatten(), was_hit.flatten() )
+    return ( knowledge_by_section[:,0], theta_values, scores, did_guess, was_hit)
         
 def simulate_test_1(test_structure, knowledge_by_section, theta_values,  guessing_prob):
     """ Symuluje przebieg testu dla każdego ucznia, uwzględniając ich wiedzę, poziom stresu, oraz prawdopodobieństwo podjęcia ryzyka. """
@@ -141,23 +142,21 @@ def simulate_test_1(test_structure, knowledge_by_section, theta_values,  guessin
     conlist_guess = resolve_ability < 0
     risk_taking_prob = calculate_risk_probability(resolve_ability).astype(np.float32)
     random_values = np.random.rand(len_students, len_questions) 
-    did_guess = np.where((conlist_guess) & (random_values < risk_taking_prob), 1, 0) #można przyspieszyć maskami
+    did_guess = np.where((conlist_guess) & (random_values < risk_taking_prob), 1, 0) 
     scores = np.where(did_guess == 1, np.random.binomial(1, guessing_prob, size=(len_students, len_questions)) * 2 - 1, 
                 np.where(resolve_ability >= 0, 1, 0))
     was_hit = np.where((did_guess == 1) & (scores == 1), 1, np.where(did_guess == 1, 0, -1))
-    students_ids = np.repeat(knowledge_by_section[:, 0], len_questions)
-    question_ids = np.tile(test_structure[0], len_students)
-    student_thetas = np.repeat(theta_values, len_questions)
+
     
-    return ( students_ids, question_ids, student_thetas, scores.flatten(), did_guess.flatten(), was_hit.flatten() )
+    return ( knowledge_by_section[:,0], theta_values, scores, did_guess, was_hit )
     
 def calculate_summary(results, num_questions):
     """ Podsumowuje wyniki testu dla każdego ucznia a następnie podaje ogólne metryki testu. """
-    scores = results[3].reshape(-1, num_questions)
-    did_guess = results[4].reshape(-1, num_questions)
-    was_hit = results[5].reshape(-1, num_questions)
-    student_ids = results[0].reshape(-1, num_questions)[:, 0]
-    student_thetas = results[2].reshape(-1, num_questions)[:, 0]
+    student_ids = results[0]
+    student_thetas = results[1]
+    scores = results[2]
+    did_guess = results[3]
+    was_hit = results[4]
     total_points = scores.sum(axis=1)
     guess_count = (did_guess == 1).sum(axis=1)
     hit_count = (was_hit == 1).sum(axis=1)
@@ -174,7 +173,6 @@ def calculate_summary(results, num_questions):
     summary = (student_ids, student_thetas, total_points, guess_count, hit_count, final_score_pct, guess_percentage, hit_rate, grade)
     return summary, pass_rate
 
-#@profile
 def generate_test(test_id, test_type, num_sections_count, group_knowledge_label, group_size, num_options, guessing_prob, group_knowledge_level):
     """Główna funkcja generująca pojedyńczy test."""
     sections_data = create_sections(num_sections_count)
@@ -232,7 +230,8 @@ def simulate (num_tests, test_type):
     guessing_prob = (1 / num_options).astype(np.float32) 
     
     simulations = Parallel(n_jobs=-1, batch_size="auto")(
-    delayed(generate_test)(i, test_type, num_sections_count[i], group_knowledge_label[i], group_size[i], num_options[i], guessing_prob[i], group_knowledge_level[i]) for i in range(num_tests))
+    delayed(generate_test)
+    (i, test_type, num_sections_count[i], group_knowledge_label[i], group_size[i], num_options[i], guessing_prob[i], group_knowledge_level[i]) for i in range(num_tests))
 
     column_names = [
         "test_id", "num_questions", "group_size", "num_sections", 
